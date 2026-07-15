@@ -1,12 +1,17 @@
-import 'dotenv/config';
 import express from 'express';
-
-const PORT = process.env.PORT || 3000;
+import { authRouter } from './routes/auth.router.js';
+import { errorMiddleware } from './middlewares/error.middleware.js';
 
 const app = express();
 
-app.get('/', (req, res) => res.send('Hello World!'));
+app.use(express.json());
 
-app.listen(3000, () => console.log(`Server running on port ${PORT}`));
+app.use(authRouter);
 
+app.get('/', (req, res) => {
+  res.send('Hello World!');
+});
 
+app.use(errorMiddleware);
+
+export default app;
