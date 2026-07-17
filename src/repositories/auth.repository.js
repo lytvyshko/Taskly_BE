@@ -22,9 +22,23 @@ const createUser = async ({
       password_hash
     )
     VALUES ($1, $2, $3)
-    RETURNING id, name, email, created_at;
+    RETURNING id, name, email, email_verified, created_at;
     `,
     [name, email, passwordHash],
+  );
+
+  return result.rows[0];
+};
+
+const verifyUserEmail = async (userId) => {
+  const result = await pool.query(
+    `
+    UPDATE users
+    SET email_verified = true
+    WHERE id = $1
+    RETURNING id, email, email_verified;
+    `,
+    [userId],
   );
 
   return result.rows[0];
@@ -33,4 +47,5 @@ const createUser = async ({
 export const authRepository = {
   findUserByEmail,
   createUser,
+  verifyUserEmail,
 };
