@@ -4,6 +4,7 @@ export const authRouter = new Router();
 import { validate } from '../middlewares/validate.middleware.js';
 import { registerSchema } from '../schemas/auth.schema.js';
 import { resendVerificationSchema } from '../schemas/resend-verification.schema.js';
+import { loginSchema } from '../schemas/login.schema.js';
 
 authRouter.post(
   '/register',
@@ -18,3 +19,11 @@ authRouter.post(
   validate(resendVerificationSchema),
   authController.resendVerification,
 );
+
+authRouter.post(
+  '/login',
+  validate(loginSchema),
+  authController.login,
+);
+
+authRouter.post('/refresh', authController.refresh);

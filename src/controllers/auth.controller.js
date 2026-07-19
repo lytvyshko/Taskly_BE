@@ -38,8 +38,33 @@ const resendVerification = async (req, res, next) => {
   }
 };
 
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const tokens = await authService.login({
+      email,
+      password,
+    });
+
+    res.json(tokens);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const refresh = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  const tokens = await authService.refresh(refreshToken);
+
+  res.json(tokens);
+};
+
 export const authController = {
   register,
   verifyEmail,
   resendVerification,
+  login,
+  refresh,
 };
