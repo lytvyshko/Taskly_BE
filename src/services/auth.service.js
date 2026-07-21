@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { transaction } from '../db/transaction.js';
 import { AppError } from '../errors/AppError.js';
 import { authRepository } from '../repositories/auth.repository.js';
 import { generateVerificationToken } from '../utils/generateToken.js';
@@ -7,7 +8,7 @@ import { sendVerificationEmail } from './email.service.js';
 import { jwtService } from './jwt.service.js';
 import { refreshTokenRepository } from '../repositories/refresh-token.repository.js';
 
-const createRefreshToken = async (userId) => {
+const prepareRefreshToken = async (userId) => {
   const { refreshToken, jti } =
     jwtService.generateRefreshToken(userId);
 
@@ -17,14 +18,12 @@ const createRefreshToken = async (userId) => {
     Date.now() + 30 * 24 * 60 * 60 * 1000,
   );
 
-  await refreshTokenRepository.create({
-    userId,
+  return {
+    refreshToken,
     jti,
     tokenHash,
     expiresAt,
-  });
-
-  return refreshToken;
+  };
 };
 
 const register = async ({ name, email, password }) => {
@@ -138,20 +137,32 @@ const login = async ({ email, password }) => {
     user.id,
   );
 
-  const refreshToken = await createRefreshToken(user.id);
+  const refreshData = await prepareRefreshToken(user.id);
+
+  await refreshTokenRepository.create({
+    userId: user.id,
+    jti: refreshData.jti,
+    tokenHash: refreshData.tokenHash,
+    expiresAt: refreshData.expiresAt,
+  });
+
+  await refreshTokenRepository.deleteExceededSessions(
+    user.id,
+    5,
+  );
 
   return {
     accessToken,
-    refreshToken,
+    refreshToken: refreshData.refreshToken,
   };
 };
 
-const refresh = async (refreshToken) => {
+const validateRefreshToken = async (refreshToken) => {
   let payload;
 
   try {
     payload = jwtService.verifyRefreshToken(refreshToken);
-  } catch (error) {
+  } catch {
     throw new AppError('Invalid refresh token', 401);
   }
 
@@ -173,17 +184,55 @@ const refresh = async (refreshToken) => {
     throw new AppError('Invalid refresh token', 401);
   }
 
-  await refreshTokenRepository.deleteByJti(jti);
-
-  const accessToken =
-    jwtService.generateAccessToken(userId);
-
-  const newRefreshToken = await createRefreshToken(userId);
-
   return {
-    accessToken,
-    refreshToken: newRefreshToken,
+    userId,
+    jti,
   };
+};
+
+const refresh = async (refreshToken) => {
+  const { userId, jti } =
+    await validateRefreshToken(refreshToken);
+
+  return transaction(async (client) => {
+    await refreshTokenRepository.deleteByJti(jti, client);
+
+    const accessToken =
+      jwtService.generateAccessToken(userId);
+
+    const refreshData = await prepareRefreshToken(userId);
+
+    return transaction(async (client) => {
+      await refreshTokenRepository.deleteByJti(jti, client);
+
+      await refreshTokenRepository.create(
+        {
+          userId,
+          jti: refreshData.jti,
+          tokenHash: refreshData.tokenHash,
+          expiresAt: refreshData.expiresAt,
+        },
+        client,
+      );
+
+      await refreshTokenRepository.deleteExceededSessions(
+        userId,
+        5,
+        client,
+      );
+
+      return {
+        accessToken,
+        refreshToken: refreshData.refreshToken,
+      };
+    });
+  });
+};
+
+const logout = async (refreshToken) => {
+  const { jti } = await validateRefreshToken(refreshToken);
+
+  await refreshTokenRepository.deleteByJti(jti);
 };
 
 export const authService = {
@@ -192,4 +241,5 @@ export const authService = {
   resendVerification,
   login,
   refresh,
+  logout,
 };

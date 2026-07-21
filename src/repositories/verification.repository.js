@@ -54,9 +54,19 @@ const deleteByUserId = async (userId) => {
   );
 };
 
+const deleteExpired = async (client = pool) => {
+  await client.query(
+    `
+      DELETE FROM email_verification_tokens
+      WHERE expires_at < NOW()
+    `,
+  );
+};
+
 export const verificationRepository = {
   createVerificationToken,
   findByToken,
   deleteByToken,
   deleteByUserId,
+  deleteExpired,
 };

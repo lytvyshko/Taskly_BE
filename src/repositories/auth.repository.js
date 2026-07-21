@@ -44,8 +44,27 @@ const verifyUserEmail = async (userId) => {
   return result.rows[0];
 };
 
+const findUserById = async (id) => {
+  const result = await pool.query(
+    `
+      SELECT
+        id,
+        name,
+        email,
+        email_verified,
+        created_at
+      FROM users
+      WHERE id = $1
+    `,
+    [id],
+  );
+
+  return result.rows[0];
+};
+
 export const authRepository = {
   findUserByEmail,
   createUser,
   verifyUserEmail,
+  findUserById,
 };

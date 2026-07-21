@@ -61,10 +61,19 @@ const refresh = async (req, res) => {
   res.json(tokens);
 };
 
+const logout = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  await authService.logout(refreshToken);
+
+  res.sendStatus(204);
+};
+
 export const authController = {
   register,
   verifyEmail,
   resendVerification,
   login,
   refresh,
+  logout,
 };

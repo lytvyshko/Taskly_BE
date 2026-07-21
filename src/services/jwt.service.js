@@ -14,6 +14,10 @@ const generateAccessToken = (userId) => {
   );
 };
 
+const verifyAccessToken = (token) => {
+  return jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+};
+
 const generateRefreshToken = (userId) => {
   const jti = crypto.randomUUID();
 
@@ -42,4 +46,5 @@ export const jwtService = {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
+  verifyAccessToken,
 };
