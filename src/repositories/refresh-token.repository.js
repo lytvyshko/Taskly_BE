@@ -33,7 +33,7 @@ const findByJti = async (jti) => {
 };
 
 const deleteByJti = async (jti, client = pool) => {
-  await pool.query(
+  await client.query(
     `
       DELETE FROM refresh_tokens
       WHERE jti = $1

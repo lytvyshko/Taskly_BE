@@ -1,4 +1,5 @@
 import { authService } from '../services/auth.service.js';
+import { refreshCookieOptions } from '../config/cookies.js';
 
 const register = async (req, res, next) => {
   try {
@@ -42,31 +43,90 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const tokens = await authService.login({
-      email,
-      password,
-    });
+    const { accessToken, refreshToken } =
+      await authService.login({
+        email,
+        password,
+      });
 
-    res.json(tokens);
+    res
+      .cookie(
+        'refreshToken',
+        refreshToken,
+        refreshCookieOptions,
+      )
+      .json({
+        accessToken,
+      });
   } catch (error) {
     next(error);
   }
 };
 
 const refresh = async (req, res) => {
-  const { refreshToken } = req.body;
+  const { refreshToken } = req.cookies;
 
-  const tokens = await authService.refresh(refreshToken);
+  const { accessToken, refreshToken: newRefreshToken } =
+    await authService.refresh(refreshToken);
 
-  res.json(tokens);
+  res
+    .cookie(
+      'refreshToken',
+      newRefreshToken,
+      refreshCookieOptions,
+    )
+    .json({
+      accessToken,
+    });
 };
 
-const logout = async (req, res) => {
-  const { refreshToken } = req.body;
+const logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.cookies;
 
-  await authService.logout(refreshToken);
+    await authService.logout(refreshToken);
+
+    res
+      .clearCookie('refreshToken', refreshCookieOptions)
+      .sendStatus(204);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const testCookie = (req, res) => {
+  console.log(req.cookies);
 
   res.sendStatus(204);
+};
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    await authService.forgotPassword(email);
+
+    res.json({
+      message:
+        "If an account with this email exists, we've sent a password reset link.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    await authService.resetPassword(token, newPassword);
+
+    res.json({
+      message: 'Password has been reset successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const authController = {
@@ -76,4 +136,7 @@ export const authController = {
   login,
   refresh,
   logout,
+  testCookie,
+  forgotPassword,
+  resetPassword,
 };

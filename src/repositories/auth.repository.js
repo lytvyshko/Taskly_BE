@@ -62,9 +62,25 @@ const findUserById = async (id) => {
   return result.rows[0];
 };
 
+const updatePassword = async (
+  userId,
+  passwordHash,
+  client = pool,
+) => {
+  await client.query(
+    `
+      UPDATE users
+      SET password_hash = $1
+      WHERE id = $2
+    `,
+    [passwordHash, userId],
+  );
+};
+
 export const authRepository = {
   findUserByEmail,
   createUser,
   verifyUserEmail,
   findUserById,
+  updatePassword,
 };

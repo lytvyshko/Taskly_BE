@@ -4,9 +4,12 @@ import { AppError } from '../errors/AppError.js';
 import { authRepository } from '../repositories/auth.repository.js';
 import { generateVerificationToken } from '../utils/generateToken.js';
 import { verificationRepository } from '../repositories/verification.repository.js';
-import { sendVerificationEmail } from './email.service.js';
+import { emailService } from './email.service.js';
 import { jwtService } from './jwt.service.js';
 import { refreshTokenRepository } from '../repositories/refresh-token.repository.js';
+import { passwordResetTokenRepository } from '../repositories/password-reset-token.repository.js';
+import { pool } from '../db/pool.js';
+import crypto from 'node:crypto';
 
 const prepareRefreshToken = async (userId) => {
   const { refreshToken, jti } =
@@ -31,14 +34,18 @@ const register = async ({ name, email, password }) => {
     await authRepository.findUserByEmail(email);
 
   if (existingUser) {
-    throw new AppError('Email already exists', 409);
+    throw new AppError(
+      'User with this email already exists',
+      409,
+    );
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const normalizedEmail = email.trim().toLowerCase();
 
   const user = await authRepository.createUser({
     name,
-    email,
+    email: normalizedEmail,
     passwordHash,
   });
 
@@ -54,7 +61,7 @@ const register = async ({ name, email, password }) => {
     expiresAt,
   });
 
-  await sendVerificationEmail({
+  await emailService.sendVerificationEmail({
     email: user.email,
     token,
   });
@@ -107,7 +114,7 @@ const resendVerification = async (email) => {
     expiresAt,
   });
 
-  await sendVerificationEmail({
+  await emailService.sendVerificationEmail({
     email: user.email,
     token,
   });
@@ -190,49 +197,150 @@ const validateRefreshToken = async (refreshToken) => {
   };
 };
 
+const tryGetRefreshTokenPayload = (refreshToken) => {
+  try {
+    return jwtService.verifyRefreshToken(refreshToken);
+  } catch {
+    return null;
+  }
+};
+
 const refresh = async (refreshToken) => {
   const { userId, jti } =
     await validateRefreshToken(refreshToken);
 
+  const accessToken =
+    jwtService.generateAccessToken(userId);
+
+  const refreshData = await prepareRefreshToken(userId);
+
   return transaction(async (client) => {
     await refreshTokenRepository.deleteByJti(jti, client);
 
-    const accessToken =
-      jwtService.generateAccessToken(userId);
-
-    const refreshData = await prepareRefreshToken(userId);
-
-    return transaction(async (client) => {
-      await refreshTokenRepository.deleteByJti(jti, client);
-
-      await refreshTokenRepository.create(
-        {
-          userId,
-          jti: refreshData.jti,
-          tokenHash: refreshData.tokenHash,
-          expiresAt: refreshData.expiresAt,
-        },
-        client,
-      );
-
-      await refreshTokenRepository.deleteExceededSessions(
+    await refreshTokenRepository.create(
+      {
         userId,
-        5,
-        client,
-      );
+        jti: refreshData.jti,
+        tokenHash: refreshData.tokenHash,
+        expiresAt: refreshData.expiresAt,
+      },
+      client,
+    );
 
-      return {
-        accessToken,
-        refreshToken: refreshData.refreshToken,
-      };
-    });
+    await refreshTokenRepository.deleteExceededSessions(
+      userId,
+      5,
+      client,
+    );
+
+    return {
+      accessToken,
+      refreshToken: refreshData.refreshToken,
+    };
   });
 };
 
 const logout = async (refreshToken) => {
-  const { jti } = await validateRefreshToken(refreshToken);
+  if (!refreshToken) {
+    return;
+  }
 
-  await refreshTokenRepository.deleteByJti(jti);
+  const payload = tryGetRefreshTokenPayload(refreshToken);
+
+  if (!payload) {
+    return;
+  }
+
+  await refreshTokenRepository.deleteByJti(payload.jti);
+};
+
+const createPasswordResetToken = async (
+  userId,
+  client = pool,
+) => {
+  await passwordResetTokenRepository.deleteByUserId(
+    userId,
+    client,
+  );
+
+  const selector = crypto.randomUUID();
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokenHash = await bcrypt.hash(token, 10);
+  const PASSWORD_RESET_TOKEN_EXPIRES_IN = 60 * 60 * 1000;
+
+  const expiresAt = new Date(
+    Date.now() + PASSWORD_RESET_TOKEN_EXPIRES_IN,
+  );
+
+  await passwordResetTokenRepository.create(
+    {
+      userId,
+      selector,
+      tokenHash,
+      expiresAt,
+    },
+    client,
+  );
+
+  return `${selector}.${token}`;
+};
+
+const forgotPassword = async (email) => {
+  const user = await authRepository.findUserByEmail(email);
+
+  if (!user) {
+    return;
+  }
+
+  const token = await createPasswordResetToken(user.id);
+
+  await emailService.sendPasswordResetEmail(
+    user.email,
+    token,
+  );
+};
+
+const validatePasswordResetToken = async (token) => {
+  const parts = token.split('.');
+
+  const invalidToken = () => {
+    throw new AppError('Invalid password reset token', 400);
+  };
+
+  if (parts.length !== 2) invalidToken();
+
+  const [selector, secret] = parts;
+
+  const resetToken =
+    await passwordResetTokenRepository.findBySelector(
+      selector,
+    );
+
+  if (!resetToken) invalidToken();
+
+  if (resetToken.expires_at < new Date()) invalidToken();
+
+  const isValid = await bcrypt.compare(
+    secret,
+    resetToken.token_hash,
+  );
+
+  if (!isValid) {
+    throw new AppError('Invalid password reset token', 400);
+  }
+
+  return {
+    userId: resetToken.user_id,
+  };
+};
+
+const resetPassword = async (token, newPassword) => {
+  const { userId } =
+    await validatePasswordResetToken(token);
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await authRepository.updatePassword(userId, passwordHash);
 };
 
 export const authService = {
@@ -242,4 +350,6 @@ export const authService = {
   login,
   refresh,
   logout,
+  forgotPassword,
+  resetPassword,
 };

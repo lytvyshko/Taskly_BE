@@ -11,7 +11,6 @@ export const validate = (schema) => {
       );
     }
 
-    console.log(result.data);
     req.body = result.data;
 
     next();

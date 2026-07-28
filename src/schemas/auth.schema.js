@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .refine(
+    (value) =>
+      /\d/.test(value) || /[^A-Za-z0-9]/.test(value),
+    {
+      message:
+        'Password must contain at least one number or symbol',
+    },
+  );
+
 export const registerSchema = z.object({
   name: z
     .string()
@@ -8,15 +20,5 @@ export const registerSchema = z.object({
 
   email: z.string().email('Invalid email format'),
 
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .refine(
-      (value) =>
-        /\d/.test(value) || /[^A-Za-z0-9]/.test(value),
-      {
-        message:
-          'Password must contain at least one number or symbol',
-      },
-    ),
+  password: passwordSchema,
 });

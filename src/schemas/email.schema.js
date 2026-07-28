@@ -1,5 +1,5 @@
 import { z } from 'zod';
 
-export const resendVerificationSchema = z.object({
+export const emailSchema = z.object({
   email: z.email('Invalid email address'),
 });
