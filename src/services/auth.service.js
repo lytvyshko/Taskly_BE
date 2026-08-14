@@ -340,7 +340,35 @@ const resetPassword = async (token, newPassword) => {
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
 
-  await authRepository.updatePassword(userId, passwordHash);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    await authRepository.updatePassword(
+      userId,
+      passwordHash,
+      client,
+    );
+
+    await passwordResetTokenRepository.deleteByUserId(
+      userId,
+      client,
+    );
+
+    await refreshTokenRepository.deleteAllByUserId(
+      userId,
+      client,
+    );
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 export const authService = {
