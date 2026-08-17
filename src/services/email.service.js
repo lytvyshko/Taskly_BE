@@ -1,24 +1,30 @@
-import nodemailer from 'nodemailer';
+import { BrevoClient } from '@getbrevo/brevo';
+import { emailConfig } from '../config/email.config.js';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
+const brevo = new BrevoClient({
+  apiKey: emailConfig.apiKey,
 });
+
+const sender = {
+  name: emailConfig.fromName,
+  email: emailConfig.fromAddress,
+};
 
 const sendVerificationEmail = async ({ email, token }) => {
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
-  await transporter.sendMail({
-    from: `${process.env.SMTP_FROM_NAME} <${process.env.SMTP_FROM_EMAIL}>`,
-    to: email,
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender,
+
+    to: [
+      {
+        email,
+      },
+    ],
+
     subject: 'Verify your email',
 
-    html: `
+    htmlContent: `
       <h2>Welcome to Todo App!</h2>
 
       <p>
@@ -40,11 +46,17 @@ const sendVerificationEmail = async ({ email, token }) => {
 const sendPasswordResetEmail = async (email, token) => {
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-  await transporter.sendMail({
-    from: `${process.env.SMTP_FROM_NAME} <${process.env.SMTP_FROM_EMAIL}>`,
-    to: email,
+  await brevo.transactionalEmails.sendTransacEmail({
+    sender,
+
+    to: [
+      {
+        email,
+      },
+    ],
+
     subject: 'Reset your password',
-    html: `
+    htmlContent: `
       <h2>Reset your password</h2>
 
       <p>You requested to reset your password.</p>
