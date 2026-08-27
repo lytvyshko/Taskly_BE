@@ -1,10 +1,14 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+dotenv.config({
+  path: process.env.ENV_FILE || '.env',
+});
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { pool } from './pool.js';
+const { pool } = await import('./pool.js');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
