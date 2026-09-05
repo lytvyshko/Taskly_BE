@@ -1,7 +1,15 @@
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger/swagger.js';
 import 'dotenv/config';
 import app from './app.js';
 import { pool } from './db/pool.js';
 import { startCleanupJob } from './jobs/cleanup-tokens.job.js';
+
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec),
+);
 
 const PORT = process.env.PORT || 3000;
 
