@@ -1,23 +1,33 @@
 import { pool } from '../db/pool.js';
 
 const taskFields = `
-  id,
-  user_id,
-  title,
-  description,
-  completed,
-  due_date,
-  tag,
-  created_at
+  tasks.id,
+  tasks.user_id,
+  tasks.title,
+  tasks.description,
+  tasks.completed,
+  tasks.due_date,
+  tasks.tag_id,
+  tags.title AS tag,
+  tags.color AS tag_color,
+  tags.icon AS tag_icon,
+  tasks.created_at
+`;
+
+const taskJoin = `
+  FROM tasks
+  LEFT JOIN tags
+    ON tags.id = tasks.tag_id
+    AND tags.user_id = tasks.user_id
 `;
 
 const findAllByUserId = async (userId) => {
   const result = await pool.query(
     `
       SELECT ${taskFields}
-      FROM tasks
-      WHERE user_id = $1
-      ORDER BY completed ASC, due_date ASC NULLS LAST, created_at DESC
+      ${taskJoin}
+      WHERE tasks.user_id = $1
+      ORDER BY tasks.completed ASC, tasks.due_date ASC NULLS LAST, tasks.created_at DESC
     `,
     [userId],
   );
@@ -25,12 +35,26 @@ const findAllByUserId = async (userId) => {
   return result.rows;
 };
 
+const findByIdForUser = async (taskId, userId) => {
+  const result = await pool.query(
+    `
+      SELECT ${taskFields}
+      ${taskJoin}
+      WHERE tasks.id = $1
+        AND tasks.user_id = $2
+    `,
+    [taskId, userId],
+  );
+
+  return result.rows[0];
+};
+
 const create = async ({
   userId,
   title,
   description,
   dueDate,
-  tag,
+  tagId,
 }) => {
   const result = await pool.query(
     `
@@ -39,18 +63,25 @@ const create = async ({
         title,
         description,
         due_date,
-        tag
+        tag_id
       )
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING ${taskFields}
+      RETURNING id
     `,
-    [userId, title, description ?? null, dueDate ?? null, tag ?? null],
+    [
+      userId,
+      title,
+      description ?? null,
+      dueDate ?? null,
+      tagId ?? null,
+    ],
   );
 
-  return result.rows[0];
+  return findByIdForUser(result.rows[0].id, userId);
 };
 
 export const tasksRepository = {
   findAllByUserId,
+  findByIdForUser,
   create,
 };

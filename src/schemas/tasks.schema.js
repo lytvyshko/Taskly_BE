@@ -26,8 +26,10 @@ export const createTaskSchema = z.object({
     .optional()
     .nullable(),
 
-  tag: optionalText(
-    100,
-    'Task tag must be at most 100 characters',
-  ),
+  tagId: z
+    .number()
+    .int('Tag id must be an integer')
+    .positive('Tag id must be positive')
+    .optional()
+    .nullable(),
 });
