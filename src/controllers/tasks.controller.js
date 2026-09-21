@@ -1,7 +1,21 @@
 import { tasksService } from '../services/tasks.service.js';
+import { getTasksQuerySchema } from '../schemas/tasks.schema.js';
+import { AppError } from '../errors/AppError.js';
 
 const getAll = async (req, res) => {
-  const tasks = await tasksService.getAll(req.user.id);
+  const result = getTasksQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    throw new AppError(
+      result.error.issues[0].message,
+      400,
+    );
+  }
+
+  const tasks = await tasksService.getAll(
+    req.user.id,
+    result.data.tab,
+  );
 
   res.json(tasks);
 };

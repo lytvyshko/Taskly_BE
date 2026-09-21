@@ -2,7 +2,6 @@ import { pool } from '../db/pool.js';
 
 const taskFields = `
   tasks.id,
-  tasks.user_id,
   tasks.title,
   tasks.description,
   tasks.completed,
@@ -10,8 +9,7 @@ const taskFields = `
   tasks.tag_id,
   tags.title AS tag,
   tags.color AS tag_color,
-  tags.icon AS tag_icon,
-  tasks.created_at
+  tags.icon AS tag_icon
 `;
 
 const taskJoin = `
@@ -21,12 +19,35 @@ const taskJoin = `
     AND tags.user_id = tasks.user_id
 `;
 
-const findAllByUserId = async (userId) => {
+const getTabCondition = (tab) => {
+  switch (tab) {
+    case 'today':
+      return `
+        AND tasks.completed = false
+        AND tasks.due_date = CURRENT_DATE::text
+      `;
+    case 'planned':
+      return `
+        AND tasks.completed = false
+        AND (
+          tasks.due_date IS NULL
+          OR tasks.due_date <> CURRENT_DATE::text
+        )
+      `;
+    case 'completed':
+      return 'AND tasks.completed = true';
+    default:
+      return '';
+  }
+};
+
+const findAllByUserId = async (userId, tab) => {
   const result = await pool.query(
     `
       SELECT ${taskFields}
       ${taskJoin}
       WHERE tasks.user_id = $1
+      ${getTabCondition(tab)}
       ORDER BY tasks.completed ASC, tasks.due_date ASC NULLS LAST, tasks.created_at DESC
     `,
     [userId],

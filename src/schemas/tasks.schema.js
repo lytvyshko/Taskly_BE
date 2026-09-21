@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const getTasksQuerySchema = z.object({
+  tab: z
+    .enum(['today', 'planned', 'completed'], {
+      message: 'Invalid tasks tab',
+    })
+    .optional(),
+});
+
 const optionalText = (maxLength, message) =>
   z
     .string()

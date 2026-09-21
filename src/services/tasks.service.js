@@ -1,7 +1,7 @@
 import { tasksRepository } from '../repositories/tasks.repository.js';
 
-const getAll = async (userId) => {
-  return tasksRepository.findAllByUserId(userId);
+const getAll = async (userId, tab) => {
+  return tasksRepository.findAllByUserId(userId, tab);
 };
 
 const create = async (userId, taskData) => {
