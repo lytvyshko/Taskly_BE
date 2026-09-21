@@ -4,6 +4,7 @@ import { authRouter } from './routes/auth.router.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { usersRouter } from './routes/users.router.js';
 import { tasksRouter } from './routes/tasks.router.js';
+import { tagsRouter } from './routes/tags.router.js';
 import cookieParser from 'cookie-parser';
 
 const allowedOrigins = [
@@ -27,6 +28,7 @@ app.use(cookieParser());
 app.use('/auth', authRouter);
 app.use('/users', usersRouter);
 app.use('/tasks', tasksRouter);
+app.use('/tags', tagsRouter);
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
