@@ -18,6 +18,7 @@ const getAll = async (req, res) => {
   const tasks = await tasksService.getAll(
     req.user.id,
     result.data.tab,
+    result.data.search,
   );
 
   res.json(tasks);
@@ -60,9 +61,29 @@ const remove = async (req, res) => {
   res.status(204).send();
 };
 
+const updateMany = async (req, res) => {
+  const updatedIds = await tasksService.updateMany(
+    req.user.id,
+    req.body,
+  );
+
+  res.json({ updatedIds });
+};
+
+const removeMany = async (req, res) => {
+  const deletedIds = await tasksService.removeMany(
+    req.user.id,
+    req.body.ids,
+  );
+
+  res.json({ deletedIds });
+};
+
 export const tasksController = {
   getAll,
   create,
   update,
   remove,
+  updateMany,
+  removeMany,
 };

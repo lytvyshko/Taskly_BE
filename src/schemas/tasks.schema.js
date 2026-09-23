@@ -6,6 +6,11 @@ export const getTasksQuerySchema = z.object({
       message: 'Invalid tasks tab',
     })
     .optional(),
+  search: z
+    .string()
+    .trim()
+    .max(255, 'Search query must be at most 255 characters')
+    .optional(),
 });
 
 const optionalText = (maxLength, message) =>
@@ -46,4 +51,34 @@ export const updateTaskSchema = createTaskSchema;
 
 export const taskIdParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
+});
+
+const taskIdsSchema = z
+  .array(z.number().int().positive())
+  .min(1, 'At least one task id is required');
+
+export const bulkUpdateTasksSchema = z
+  .object({
+    ids: taskIdsSchema,
+    completed: z.boolean().optional(),
+    dueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid due date')
+      .optional()
+      .nullable(),
+    tagId: z
+      .number()
+      .int('Tag id must be an integer')
+      .positive('Tag id must be positive')
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    ({ completed, dueDate, tagId }) =>
+      completed !== undefined || dueDate !== undefined || tagId !== undefined,
+    'At least one task field must be provided',
+  );
+
+export const deleteTasksSchema = z.object({
+  ids: taskIdsSchema,
 });

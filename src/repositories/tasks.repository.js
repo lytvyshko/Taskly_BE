@@ -41,16 +41,32 @@ const getTabCondition = (tab) => {
   }
 };
 
-const findAllByUserId = async (userId, tab) => {
+const findAllByUserId = async (userId, tab, search) => {
+  const queryParams = [userId];
+  const searchCondition = search
+    ? `
+        AND (
+          tasks.title ILIKE $2
+          OR tasks.description ILIKE $2
+          OR tags.title ILIKE $2
+        )
+      `
+    : '';
+
+  if (search) {
+    queryParams.push(`%${search}%`);
+  }
+
   const result = await pool.query(
     `
       SELECT ${taskFields}
       ${taskJoin}
       WHERE tasks.user_id = $1
+      ${searchCondition}
       ${getTabCondition(tab)}
       ORDER BY tasks.completed ASC, tasks.due_date ASC NULLS LAST, tasks.created_at DESC
     `,
-    [userId],
+    queryParams,
   );
 
   return result.rows;
@@ -146,10 +162,62 @@ const deleteByIdForUser = async (taskId, userId) => {
   return result.rows[0];
 };
 
+const updateManyByIdsForUser = async (
+  userId,
+  { ids, completed, dueDate, tagId },
+) => {
+  const assignments = [];
+  const values = [userId, ids];
+
+  if (completed !== undefined) {
+    assignments.push(`completed = $${values.length + 1}`);
+    values.push(completed);
+  }
+
+  if (dueDate !== undefined) {
+    assignments.push(`due_date = $${values.length + 1}`);
+    values.push(dueDate);
+  }
+
+  if (tagId !== undefined) {
+    assignments.push(`tag_id = $${values.length + 1}`);
+    values.push(tagId);
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE tasks
+      SET ${assignments.join(', ')}
+      WHERE user_id = $1
+        AND id = ANY($2::INTEGER[])
+      RETURNING id
+    `,
+    values,
+  );
+
+  return result.rows.map((row) => row.id);
+};
+
+const deleteManyByIdsForUser = async (userId, ids) => {
+  const result = await pool.query(
+    `
+      DELETE FROM tasks
+      WHERE user_id = $1
+        AND id = ANY($2::INTEGER[])
+      RETURNING id
+    `,
+    [userId, ids],
+  );
+
+  return result.rows.map((row) => row.id);
+};
+
 export const tasksRepository = {
   findAllByUserId,
   findByIdForUser,
   create,
   updateByIdForUser,
   deleteByIdForUser,
+  updateManyByIdsForUser,
+  deleteManyByIdsForUser,
 };
