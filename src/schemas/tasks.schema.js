@@ -41,3 +41,9 @@ export const createTaskSchema = z.object({
     .optional()
     .nullable(),
 });
+
+export const updateTaskSchema = createTaskSchema;
+
+export const taskIdParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});

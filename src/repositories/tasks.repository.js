@@ -101,8 +101,55 @@ const create = async ({
   return findByIdForUser(result.rows[0].id, userId);
 };
 
+const updateByIdForUser = async (
+  taskId,
+  userId,
+  { title, description, dueDate, tagId },
+) => {
+  const result = await pool.query(
+    `
+      UPDATE tasks
+      SET title = $1,
+          description = $2,
+          due_date = $3,
+          tag_id = $4
+      WHERE id = $5
+        AND user_id = $6
+      RETURNING id
+    `,
+    [
+      title,
+      description ?? null,
+      dueDate ?? null,
+      tagId ?? null,
+      taskId,
+      userId,
+    ],
+  );
+
+  if (!result.rows[0]) return undefined;
+
+  return findByIdForUser(result.rows[0].id, userId);
+};
+
+const deleteByIdForUser = async (taskId, userId) => {
+  const result = await pool.query(
+    `
+      DELETE FROM tasks
+      WHERE id = $1
+        AND user_id = $2
+      RETURNING id
+    `,
+    [taskId, userId],
+  );
+
+  return result.rows[0];
+};
+
 export const tasksRepository = {
   findAllByUserId,
   findByIdForUser,
   create,
+  updateByIdForUser,
+  deleteByIdForUser,
 };
