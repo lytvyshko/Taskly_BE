@@ -60,6 +60,27 @@ const create = async ({ userId, title, icon, color }) => {
   return result.rows[0];
 };
 
+const updateByUserIdAndId = async (
+  userId,
+  tagId,
+  { title, icon, color },
+) => {
+  const result = await pool.query(
+    `
+      UPDATE tags
+      SET title = $1,
+          icon = $2,
+          color = $3
+      WHERE id = $4
+        AND user_id = $5
+      RETURNING ${tagFields}
+    `,
+    [title, icon, color, tagId, userId],
+  );
+
+  return result.rows[0];
+};
+
 const deleteByUserIdAndId = async (userId, tagId) => {
   const result = await pool.query(
     `
@@ -92,6 +113,7 @@ export const tagsRepository = {
   findAllByUserId,
   findByUserIdAndTitle,
   create,
+  updateByUserIdAndId,
   deleteByUserIdAndId,
   deleteManyByUserIdAndIds,
 };

@@ -6,6 +6,7 @@ import { validate } from '../middlewares/validate.middleware.js';
 import {
   createTagSchema,
   deleteTagsSchema,
+  updateTagSchema,
 } from '../schemas/tags.schema.js';
 
 const tagsRouter = Router();
@@ -16,6 +17,12 @@ tagsRouter.post(
   authenticate,
   validate(createTagSchema),
   tagsController.create,
+);
+tagsRouter.patch(
+  '/:id',
+  authenticate,
+  validate(updateTagSchema),
+  tagsController.update,
 );
 tagsRouter.delete(
   '/',

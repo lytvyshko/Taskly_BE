@@ -37,6 +37,8 @@ export const createTagSchema = z.object({
   }),
 });
 
+export const updateTagSchema = createTagSchema;
+
 export const deleteTagsSchema = z.object({
   ids: z
     .array(z.number().int().positive())

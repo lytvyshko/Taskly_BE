@@ -19,6 +19,22 @@ const create = async (req, res) => {
   res.status(201).json(tag);
 };
 
+const update = async (req, res) => {
+  const result = deleteTagParamsSchema.safeParse(req.params);
+
+  if (!result.success) {
+    throw new AppError('Invalid tag id', 400);
+  }
+
+  const tag = await tagsService.update(
+    req.user.id,
+    result.data.id,
+    req.body,
+  );
+
+  res.json(tag);
+};
+
 const remove = async (req, res) => {
   const result = deleteTagParamsSchema.safeParse(req.params);
 
@@ -43,6 +59,7 @@ const removeMany = async (req, res) => {
 export const tagsController = {
   getAll,
   create,
+  update,
   remove,
   removeMany,
 };
