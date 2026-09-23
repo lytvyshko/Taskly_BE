@@ -60,8 +60,38 @@ const create = async ({ userId, title, icon, color }) => {
   return result.rows[0];
 };
 
+const deleteByUserIdAndId = async (userId, tagId) => {
+  const result = await pool.query(
+    `
+      DELETE FROM tags
+      WHERE id = $1
+        AND user_id = $2
+      RETURNING id
+    `,
+    [tagId, userId],
+  );
+
+  return result.rows[0];
+};
+
+const deleteManyByUserIdAndIds = async (userId, tagIds) => {
+  const result = await pool.query(
+    `
+      DELETE FROM tags
+      WHERE user_id = $1
+        AND id = ANY($2::INTEGER[])
+      RETURNING id
+    `,
+    [userId, tagIds],
+  );
+
+  return result.rows.map((row) => row.id);
+};
+
 export const tagsRepository = {
   findAllByUserId,
   findByUserIdAndTitle,
   create,
+  deleteByUserIdAndId,
+  deleteManyByUserIdAndIds,
 };

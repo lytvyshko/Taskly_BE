@@ -1,4 +1,8 @@
 import { tagsService } from '../services/tags.service.js';
+import {
+  deleteTagParamsSchema,
+} from '../schemas/tags.schema.js';
+import { AppError } from '../errors/AppError.js';
 
 const getAll = async (req, res) => {
   const tags = await tagsService.getAll(req.user.id);
@@ -15,7 +19,30 @@ const create = async (req, res) => {
   res.status(201).json(tag);
 };
 
+const remove = async (req, res) => {
+  const result = deleteTagParamsSchema.safeParse(req.params);
+
+  if (!result.success) {
+    throw new AppError('Invalid tag id', 400);
+  }
+
+  await tagsService.remove(req.user.id, result.data.id);
+
+  res.status(204).send();
+};
+
+const removeMany = async (req, res) => {
+  const deletedIds = await tagsService.removeMany(
+    req.user.id,
+    req.body.ids,
+  );
+
+  res.json({ deletedIds });
+};
+
 export const tagsController = {
   getAll,
   create,
+  remove,
+  removeMany,
 };

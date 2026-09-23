@@ -3,7 +3,10 @@ import { Router } from 'express';
 import { tagsController } from '../controllers/tags.controller.js';
 import { authenticate } from '../middlewares/authenticate.js';
 import { validate } from '../middlewares/validate.middleware.js';
-import { createTagSchema } from '../schemas/tags.schema.js';
+import {
+  createTagSchema,
+  deleteTagsSchema,
+} from '../schemas/tags.schema.js';
 
 const tagsRouter = Router();
 
@@ -14,5 +17,12 @@ tagsRouter.post(
   validate(createTagSchema),
   tagsController.create,
 );
+tagsRouter.delete(
+  '/',
+  authenticate,
+  validate(deleteTagsSchema),
+  tagsController.removeMany,
+);
+tagsRouter.delete('/:id', authenticate, tagsController.remove);
 
 export { tagsRouter };

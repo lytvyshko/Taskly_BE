@@ -36,3 +36,13 @@ export const createTagSchema = z.object({
     message: 'Invalid tag color',
   }),
 });
+
+export const deleteTagsSchema = z.object({
+  ids: z
+    .array(z.number().int().positive())
+    .min(1, 'At least one tag id is required'),
+});
+
+export const deleteTagParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
