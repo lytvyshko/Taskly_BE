@@ -359,6 +359,50 @@ const resetPassword = async (token, newPassword) => {
   });
 };
 
+const changePassword = async (
+  userId,
+  currentPassword,
+  newPassword,
+  refreshToken,
+) => {
+  const user = await authRepository.findUserPasswordById(
+    userId,
+  );
+
+  const isCurrentPasswordValid = await bcrypt.compare(
+    currentPassword,
+    user.password_hash,
+  );
+
+  if (!isCurrentPasswordValid) {
+    throw new AppError('Current password is incorrect', 401);
+  }
+
+  const currentSession = await validateRefreshToken(
+    refreshToken,
+  );
+
+  if (currentSession.userId !== userId) {
+    throw new AppError('Invalid refresh token', 401);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  await transaction(async (client) => {
+    await authRepository.updatePassword(
+      userId,
+      passwordHash,
+      client,
+    );
+
+    await refreshTokenRepository.deleteAllByUserIdExcept(
+      userId,
+      currentSession.jti,
+      client,
+    );
+  });
+};
+
 export const authService = {
   register,
   verifyEmail,
@@ -368,4 +412,5 @@ export const authService = {
   logout,
   forgotPassword,
   resetPassword,
+  changePassword,
 };

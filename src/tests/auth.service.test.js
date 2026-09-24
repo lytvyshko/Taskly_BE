@@ -14,6 +14,8 @@ import { refreshTokenRepository } from '../repositories/refresh-token.repository
 vi.mock('../repositories/auth.repository.js', () => ({
   authRepository: {
     findUserByEmail: vi.fn(),
+    findUserPasswordById: vi.fn(),
+    updatePassword: vi.fn(),
   },
 }));
 
@@ -28,6 +30,7 @@ vi.mock('../services/jwt.service.js', () => ({
   jwtService: {
     generateAccessToken: vi.fn(),
     generateRefreshToken: vi.fn(),
+    verifyRefreshToken: vi.fn(),
   },
 }));
 
@@ -37,9 +40,15 @@ vi.mock(
     refreshTokenRepository: {
       create: vi.fn(),
       deleteExceededSessions: vi.fn(),
+      deleteAllByUserIdExcept: vi.fn(),
+      findByJti: vi.fn(),
     },
   }),
 );
+
+vi.mock('../db/transaction.js', () => ({
+  transaction: vi.fn(async (callback) => callback({})),
+}));
 
 vi.mock('../services/email.service.js', () => ({
   emailService: {
@@ -233,6 +242,88 @@ describe('authService.login', () => {
 
     expect(
       refreshTokenRepository.deleteExceededSessions,
+    ).not.toHaveBeenCalled();
+  });
+});
+
+describe('authService.changePassword', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should change password with valid current credentials', async () => {
+    authRepository.findUserPasswordById.mockResolvedValue({
+      password_hash: 'current-password-hash',
+    });
+    bcrypt.compare
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true);
+    bcrypt.hash.mockResolvedValue('new-password-hash');
+    jwtService.verifyRefreshToken.mockReturnValue({
+      userId: 1,
+      jti: 'current-jti',
+    });
+    refreshTokenRepository.findByJti.mockResolvedValue({
+      token_hash: 'current-refresh-token-hash',
+    });
+
+    await authService.changePassword(
+      1,
+      'current-password',
+      'new-password123',
+      'current-refresh-token',
+    );
+
+    expect(
+      authRepository.findUserPasswordById,
+    ).toHaveBeenCalledWith(1);
+    expect(bcrypt.compare).toHaveBeenCalledWith(
+      'current-password',
+      'current-password-hash',
+    );
+    expect(
+      refreshTokenRepository.findByJti,
+    ).toHaveBeenCalledWith('current-jti');
+    expect(bcrypt.compare).toHaveBeenCalledWith(
+      'current-refresh-token',
+      'current-refresh-token-hash',
+    );
+    expect(bcrypt.hash).toHaveBeenCalledWith(
+      'new-password123',
+      10,
+    );
+    expect(authRepository.updatePassword).toHaveBeenCalledWith(
+      1,
+      'new-password-hash',
+      expect.anything(),
+    );
+    expect(
+      refreshTokenRepository.deleteAllByUserIdExcept,
+    ).toHaveBeenCalledWith(
+      1,
+      'current-jti',
+      expect.anything(),
+    );
+  });
+
+  it('should reject an incorrect current password', async () => {
+    authRepository.findUserPasswordById.mockResolvedValue({
+      password_hash: 'current-password-hash',
+    });
+    bcrypt.compare.mockResolvedValue(false);
+
+    await expect(
+      authService.changePassword(
+        1,
+        'wrong-password',
+        'new-password123',
+        'current-refresh-token',
+      ),
+    ).rejects.toThrow('Current password is incorrect');
+
+    expect(bcrypt.hash).not.toHaveBeenCalled();
+    expect(
+      authRepository.updatePassword,
     ).not.toHaveBeenCalled();
   });
 });

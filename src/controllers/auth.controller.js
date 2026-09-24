@@ -129,6 +129,26 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const { refreshToken } = req.cookies;
+
+    await authService.changePassword(
+      req.user.id,
+      currentPassword,
+      newPassword,
+      refreshToken,
+    );
+
+    res.json({
+      message: 'Password changed successfully.',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const authController = {
   register,
   verifyEmail,
@@ -139,4 +159,5 @@ export const authController = {
   testCookie,
   forgotPassword,
   resetPassword,
+  changePassword,
 };

@@ -2,10 +2,14 @@ import { Router } from 'express';
 import { authController } from '../controllers/auth.controller.js';
 export const authRouter = new Router();
 import { validate } from '../middlewares/validate.middleware.js';
-import { registerSchema } from '../schemas/auth.schema.js';
+import {
+  changePasswordSchema,
+  registerSchema,
+} from '../schemas/auth.schema.js';
 import { emailSchema } from '../schemas/email.schema.js';
 import { loginSchema } from '../schemas/login.schema.js';
 import { resetPasswordSchema } from '../schemas/resetPassword.schema.js';
+import { authenticate } from '../middlewares/authenticate.js';
 
 authRouter.post(
   '/register',
@@ -30,6 +34,13 @@ authRouter.post(
 authRouter.post('/refresh', authController.refresh);
 
 authRouter.post('/logout', authController.logout);
+
+authRouter.patch(
+  '/password',
+  authenticate,
+  validate(changePasswordSchema),
+  authController.changePassword,
+);
 
 authRouter.get('/test-cookie', authController.testCookie);
 

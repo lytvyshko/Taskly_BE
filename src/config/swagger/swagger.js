@@ -96,6 +96,25 @@ export const swaggerSpec = {
         },
       },
 
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['currentPassword', 'newPassword'],
+        properties: {
+          currentPassword: {
+            type: 'string',
+            minLength: 1,
+            example: 'oldPassword123',
+          },
+          newPassword: {
+            type: 'string',
+            minLength: 8,
+            description:
+              'Must contain at least one number or symbol.',
+            example: 'newPassword123',
+          },
+        },
+      },
+
       User: {
         type: 'object',
         required: [
@@ -166,6 +185,10 @@ export const swaggerSpec = {
     },
 
     securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+      },
       refreshTokenCookie: {
         type: 'apiKey',
         in: 'cookie',
@@ -606,6 +629,65 @@ export const swaggerSpec = {
 
           500: {
             description: 'Internal server error',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/auth/password': {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Change password for the authenticated user',
+
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ChangePasswordRequest',
+              },
+            },
+          },
+        },
+
+        responses: {
+          200: {
+            description: 'Password successfully changed',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/MessageResponse',
+                },
+              },
+            },
+          },
+
+          401: {
+            description: 'Current password is incorrect',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+
+          400: {
+            description: 'Invalid password data',
             content: {
               'application/json': {
                 schema: {

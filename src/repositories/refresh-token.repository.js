@@ -81,6 +81,21 @@ const deleteAllByUserId = async (userId, client = pool) => {
   );
 };
 
+const deleteAllByUserIdExcept = async (
+  userId,
+  currentJti,
+  client = pool,
+) => {
+  await client.query(
+    `
+      DELETE FROM refresh_tokens
+      WHERE user_id = $1
+        AND jti <> $2
+    `,
+    [userId, currentJti],
+  );
+};
+
 export const refreshTokenRepository = {
   create,
   findByJti,
@@ -88,4 +103,5 @@ export const refreshTokenRepository = {
   deleteExceededSessions,
   deleteExpired,
   deleteAllByUserId,
+  deleteAllByUserIdExcept,
 };
