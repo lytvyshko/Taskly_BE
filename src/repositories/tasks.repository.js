@@ -29,10 +29,7 @@ const getTabCondition = (tab) => {
     case 'planned':
       return `
         AND tasks.completed = false
-        AND (
-          tasks.due_date IS NULL
-          OR tasks.due_date <> CURRENT_DATE::text
-        )
+        AND tasks.due_date > CURRENT_DATE::text
       `;
     case 'completed':
       return 'AND tasks.completed = true';
@@ -41,9 +38,8 @@ const getTabCondition = (tab) => {
   }
 };
 
-const findAllByUserId = async (userId, tab, search) => {
-  const queryParams = [userId];
-  const searchCondition = search
+const getSearchCondition = (search) =>
+  search
     ? `
         AND (
           tasks.title ILIKE $2
@@ -53,23 +49,53 @@ const findAllByUserId = async (userId, tab, search) => {
       `
     : '';
 
+const findAllByUserId = async (userId, tab, search) => {
+  const queryParams = [userId];
+  const searchCondition = getSearchCondition(search);
+
   if (search) {
     queryParams.push(`%${search}%`);
   }
 
-  const result = await pool.query(
-    `
+  const [tasksResult, countsResult] = await Promise.all([
+    pool.query(
+      `
       SELECT ${taskFields}
       ${taskJoin}
       WHERE tasks.user_id = $1
       ${searchCondition}
       ${getTabCondition(tab)}
       ORDER BY tasks.completed ASC, tasks.due_date ASC NULLS LAST, tasks.created_at DESC
-    `,
-    queryParams,
-  );
+      `,
+      queryParams,
+    ),
+    pool.query(
+      `
+      SELECT
+        COUNT(*)::INTEGER AS "all",
+        COUNT(*) FILTER (
+          WHERE tasks.completed = false
+            AND tasks.due_date = CURRENT_DATE::text
+        )::INTEGER AS today,
+        COUNT(*) FILTER (
+          WHERE tasks.completed = false
+            AND tasks.due_date > CURRENT_DATE::text
+        )::INTEGER AS planned,
+        COUNT(*) FILTER (
+          WHERE tasks.completed = true
+        )::INTEGER AS completed
+      ${taskJoin}
+      WHERE tasks.user_id = $1
+      ${searchCondition}
+      `,
+      queryParams,
+    ),
+  ]);
 
-  return result.rows;
+  return {
+    tasks: tasksResult.rows,
+    counts: countsResult.rows[0],
+  };
 };
 
 const findByIdForUser = async (taskId, userId) => {
