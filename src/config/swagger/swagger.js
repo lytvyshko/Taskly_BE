@@ -19,6 +19,10 @@ export const swaggerSpec = {
       name: 'Auth',
       description: 'Authentication endpoints',
     },
+    {
+      name: 'Users',
+      description: 'User profile endpoints',
+    },
   ],
 
   components: {
@@ -146,6 +150,13 @@ export const swaggerSpec = {
           email_verified: {
             type: 'boolean',
             example: false,
+          },
+          avatar_url: {
+            type: 'string',
+            format: 'uri',
+            nullable: true,
+            example:
+              'https://pub-example.r2.dev/avatars/user-26/profile.webp',
           },
         },
       },
@@ -688,6 +699,65 @@ export const swaggerSpec = {
 
           400: {
             description: 'Invalid password data',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ErrorResponse',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/users/me/profile': {
+      patch: {
+        tags: ['Users'],
+        summary: 'Update the authenticated user profile',
+
+        security: [
+          {
+            bearerAuth: [],
+          },
+        ],
+
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: {
+                    type: 'string',
+                    minLength: 2,
+                    maxLength: 50,
+                    example: 'Pavlo',
+                  },
+                  avatar: {
+                    type: 'string',
+                    format: 'binary',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200: {
+            description: 'Profile successfully updated',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/User',
+                },
+              },
+            },
+          },
+          400: {
+            description: 'Invalid profile data or avatar file',
             content: {
               'application/json': {
                 schema: {
