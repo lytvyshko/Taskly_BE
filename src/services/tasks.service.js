@@ -26,17 +26,6 @@ const update = async (userId, taskId, taskData) => {
   return updatedTask;
 };
 
-const remove = async (userId, taskId) => {
-  const deletedTask = await tasksRepository.deleteByIdForUser(
-    taskId,
-    userId,
-  );
-
-  if (!deletedTask) {
-    throw new AppError('Task not found', 404);
-  }
-};
-
 const updateMany = async (userId, taskData) => {
   return tasksRepository.updateManyByIdsForUser(userId, taskData);
 };
@@ -49,7 +38,6 @@ export const tasksService = {
   getAll,
   create,
   update,
-  remove,
   updateMany,
   removeMany,
 };

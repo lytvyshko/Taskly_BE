@@ -37,6 +37,5 @@ tasksRouter.patch(
   validate(updateTaskSchema),
   tasksController.update,
 );
-tasksRouter.delete('/:id', authenticate, tasksController.remove);
 
 export { tasksRouter };

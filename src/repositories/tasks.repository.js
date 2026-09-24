@@ -148,20 +148,6 @@ const updateByIdForUser = async (
   return findByIdForUser(result.rows[0].id, userId);
 };
 
-const deleteByIdForUser = async (taskId, userId) => {
-  const result = await pool.query(
-    `
-      DELETE FROM tasks
-      WHERE id = $1
-        AND user_id = $2
-      RETURNING id
-    `,
-    [taskId, userId],
-  );
-
-  return result.rows[0];
-};
-
 const updateManyByIdsForUser = async (
   userId,
   { ids, completed, dueDate, tagId },
@@ -217,7 +203,6 @@ export const tasksRepository = {
   findByIdForUser,
   create,
   updateByIdForUser,
-  deleteByIdForUser,
   updateManyByIdsForUser,
   deleteManyByIdsForUser,
 };

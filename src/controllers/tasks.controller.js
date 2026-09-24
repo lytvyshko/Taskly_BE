@@ -49,18 +49,6 @@ const update = async (req, res) => {
   res.json(task);
 };
 
-const remove = async (req, res) => {
-  const result = taskIdParamsSchema.safeParse(req.params);
-
-  if (!result.success) {
-    throw new AppError('Invalid task id', 400);
-  }
-
-  await tasksService.remove(req.user.id, result.data.id);
-
-  res.status(204).send();
-};
-
 const updateMany = async (req, res) => {
   const updatedIds = await tasksService.updateMany(
     req.user.id,
@@ -83,7 +71,6 @@ export const tasksController = {
   getAll,
   create,
   update,
-  remove,
   updateMany,
   removeMany,
 };
