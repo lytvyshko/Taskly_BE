@@ -1,4 +1,5 @@
 import { pool } from '../db/pool.js';
+import { encodeTaskCursor } from '../utils/task-cursor.js';
 
 const taskFields = `
   tasks.id,
@@ -38,36 +39,109 @@ const getTabCondition = (tab) => {
   }
 };
 
-const getSearchCondition = (search) =>
-  search
+const getSearchCondition = (searchPlaceholder) =>
+  searchPlaceholder
     ? `
         AND (
-          tasks.title ILIKE $2
-          OR tasks.description ILIKE $2
-          OR tags.title ILIKE $2
+          tasks.title ILIKE ${searchPlaceholder}
+          OR tasks.description ILIKE ${searchPlaceholder}
+          OR tags.title ILIKE ${searchPlaceholder}
         )
       `
     : '';
 
-const findAllByUserId = async (userId, tab, search) => {
-  const queryParams = [userId];
-  const searchCondition = getSearchCondition(search);
+const getCursorCondition = (cursor, addParam) => {
+  const completedParam = addParam(cursor.completed);
+  const dueDateParam = addParam(cursor.dueDate);
+  const createdAtParam = addParam(cursor.createdAt);
+  const idParam = addParam(cursor.id);
+
+  const createdAtCondition = `
+    tasks.created_at < ${createdAtParam}::timestamp
+    OR (
+      tasks.created_at = ${createdAtParam}::timestamp
+      AND tasks.id < ${idParam}
+    )
+  `;
+
+  const dueDateCondition =
+    cursor.dueDate === null
+      ? `
+          tasks.due_date IS NULL
+          AND (${createdAtCondition})
+        `
+      : `
+          (
+            tasks.due_date > ${dueDateParam}
+            OR tasks.due_date IS NULL
+            OR (
+              tasks.due_date = ${dueDateParam}
+              AND (${createdAtCondition})
+            )
+          )
+        `;
+
+  return `
+    AND (
+      tasks.completed > ${completedParam}::boolean
+      OR (
+        tasks.completed = ${completedParam}::boolean
+        AND ${dueDateCondition}
+      )
+    )
+  `;
+};
+
+const findAllByUserId = async (
+  userId,
+  tab,
+  search,
+  limit,
+  cursor,
+) => {
+  const filterParams = [userId];
+  let searchPlaceholder;
 
   if (search) {
-    queryParams.push(`%${search}%`);
+    filterParams.push(`%${search}%`);
+    searchPlaceholder = `$${filterParams.length}`;
   }
+
+  const searchCondition = getSearchCondition(
+    searchPlaceholder,
+  );
+  const listParams = [...filterParams];
+  const addListParam = (value) => {
+    listParams.push(value);
+    return `$${listParams.length}`;
+  };
+  const cursorCondition = cursor
+    ? getCursorCondition(cursor, addListParam)
+    : '';
+  const limitPlaceholder = addListParam(limit + 1);
 
   const [tasksResult, countsResult] = await Promise.all([
     pool.query(
       `
-      SELECT ${taskFields}
+      SELECT
+        ${taskFields},
+        to_char(
+          tasks.created_at,
+          'YYYY-MM-DD"T"HH24:MI:SS.US'
+        ) AS _cursor_created_at
       ${taskJoin}
       WHERE tasks.user_id = $1
       ${searchCondition}
       ${getTabCondition(tab)}
-      ORDER BY tasks.completed ASC, tasks.due_date ASC NULLS LAST, tasks.created_at DESC
+      ${cursorCondition}
+      ORDER BY
+        tasks.completed ASC,
+        tasks.due_date ASC NULLS LAST,
+        tasks.created_at DESC,
+        tasks.id DESC
+      LIMIT ${limitPlaceholder}
       `,
-      queryParams,
+      listParams,
     ),
     pool.query(
       `
@@ -88,13 +162,30 @@ const findAllByUserId = async (userId, tab, search) => {
       WHERE tasks.user_id = $1
       ${searchCondition}
       `,
-      queryParams,
+      filterParams,
     ),
   ]);
 
+  const hasNextPage = tasksResult.rows.length > limit;
+  const pageRows = hasNextPage
+    ? tasksResult.rows.slice(0, limit)
+    : tasksResult.rows;
+  const lastRow = pageRows[pageRows.length - 1];
+  const tasks = pageRows.map(
+    ({ _cursor_created_at, ...task }) => task,
+  );
+
   return {
-    tasks: tasksResult.rows,
+    tasks,
     counts: countsResult.rows[0],
+    nextCursor: hasNextPage
+      ? encodeTaskCursor({
+          completed: lastRow.completed,
+          dueDate: lastRow.due_date,
+          createdAt: lastRow._cursor_created_at,
+          id: lastRow.id,
+        })
+      : null,
   };
 };
 

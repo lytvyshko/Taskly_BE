@@ -4,22 +4,23 @@ import {
   taskIdParamsSchema,
 } from '../schemas/tasks.schema.js';
 import { AppError } from '../errors/AppError.js';
+import { decodeTaskCursor } from '../utils/task-cursor.js';
 
 const getAll = async (req, res) => {
   const result = getTasksQuerySchema.safeParse(req.query);
 
   if (!result.success) {
-    throw new AppError(
-      result.error.issues[0].message,
-      400,
-    );
+    throw new AppError(result.error.issues[0].message, 400);
   }
 
-  const tasks = await tasksService.getAll(
-    req.user.id,
-    result.data.tab,
-    result.data.search,
-  );
+  const cursor = result.data.cursor
+    ? decodeTaskCursor(result.data.cursor)
+    : null;
+
+  const tasks = await tasksService.getAll(req.user.id, {
+    ...result.data,
+    cursor,
+  });
 
   res.json(tasks);
 };

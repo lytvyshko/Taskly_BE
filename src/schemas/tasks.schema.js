@@ -11,6 +11,18 @@ export const getTasksQuerySchema = z.object({
     .trim()
     .max(255, 'Search query must be at most 255 characters')
     .optional(),
+  limit: z.coerce
+    .number()
+    .int('Limit must be an integer')
+    .min(1, 'Limit must be at least 1')
+    .max(100, 'Limit must be at most 100')
+    .default(50),
+  cursor: z
+    .string()
+    .trim()
+    .min(1, 'Cursor must not be empty')
+    .max(512, 'Cursor is too long')
+    .optional(),
 });
 
 const optionalText = (maxLength, message) =>
@@ -75,7 +87,9 @@ export const bulkUpdateTasksSchema = z
   })
   .refine(
     ({ completed, dueDate, tagId }) =>
-      completed !== undefined || dueDate !== undefined || tagId !== undefined,
+      completed !== undefined ||
+      dueDate !== undefined ||
+      tagId !== undefined,
     'At least one task field must be provided',
   );
 
